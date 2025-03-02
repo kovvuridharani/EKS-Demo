@@ -1,104 +1,122 @@
-# Creating EKS Cluster
-resource "aws_eks_cluster" "eks" {
+resource "aws_eks_cluster" "cloudquicklabs" {
   name     = var.cluster_name
-  role_arn = var.master_arn
-  version  = var.cluster_version
+  role_arn = aws_iam_role.cloudquicklabs.arn
 
   vpc_config {
-    subnet_ids = [var.public_subnet_az1_id, var.public_subnet_az2_id]
+    subnet_ids              = var.aws_public_subnet
+    endpoint_public_access  = var.endpoint_public_access
+    endpoint_private_access = var.endpoint_private_access
+    public_access_cidrs     = var.public_access_cidrs
+    security_group_ids      = [aws_security_group.node_group_one.id]
   }
 
-  tags = {
-    key   = var.env
-    value = var.type
-  }
+  depends_on = [
+    aws_iam_role_policy_attachment.cloudquicklabs-AmazonEKSClusterPolicy,
+    aws_iam_role_policy_attachment.cloudquicklabs-AmazonEKSVPCResourceController,
+  ]
 }
 
-# Using Data Source to get all Avalablility Zones in Region
-data "aws_availability_zones" "available_zones" {}
+resource "aws_eks_node_group" "cloudquicklabs" {
+  cluster_name    = aws_eks_cluster.cloudquicklabs.name
+  node_group_name = var.node_group_name
+  node_role_arn   = aws_iam_role.cloudquicklabs2.arn
+  subnet_ids      = var.aws_public_subnet
+  instance_types  = var.instance_types
 
-# Creating Launch Template for Worker Nodes
-resource "aws_launch_template" "worker-node-launch-template" {
-  name = "worker-node-launch-template"
-  block_device_mappings {
-    device_name = "/dev/sdf"
-
-    ebs {
-      volume_size = 20
-    }
-  }
-
-  image_id      = var.image_id
-  instance_type = "t2.micro"
-  user_data = base64encode(<<-EOF
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
---==MYBOUNDARY==
-Content-Type: text/x-shellscript; charset="us-ascii"
-#!/bin/bash
-/etc/eks/bootstrap.sh prod-cluster
---==MYBOUNDARY==--\
-  EOF
-)
-
-
-  vpc_security_group_ids = [var.eks_security_group_id]
-
-  tag_specifications {
-    resource_type = "instance"
-
-    tags = {
-      Name = "Worker-Nodes"
-    }
-  }
-}
-
-# Creating Worker Node Group
-resource "aws_eks_node_group" "node-grp" {
-  cluster_name    = aws_eks_cluster.eks.name
-  node_group_name = "Worker-Node-Group"
-  node_role_arn   = var.worker_arn
-  subnet_ids      = [var.public_subnet_az1_id, var.public_subnet_az2_id]
-
-  launch_template {
-    name    = aws_launch_template.worker-node-launch-template.name
-    version = aws_launch_template.worker-node-launch-template.latest_version
-  }
-
-  labels = {
-    env = "Prod"
+  remote_access {
+    source_security_group_ids = [aws_security_group.node_group_one.id]
+    ec2_ssh_key               = var.key_pair
   }
 
   scaling_config {
-    desired_size = var.worker_node_count
-    max_size     = 7
-    min_size     = 1
+    desired_size = var.scaling_desired_size
+    max_size     = var.scaling_max_size
+    min_size     = var.scaling_min_size
   }
 
-  update_config {
-    max_unavailable = 1
+  depends_on = [
+    aws_iam_role_policy_attachment.cloudquicklabs-AmazonEKSWorkerNodePolicy,
+    aws_iam_role_policy_attachment.cloudquicklabs-AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.cloudquicklabs-AmazonEC2ContainerRegistryReadOnly,
+  ]
+}
+
+resource "aws_security_group" "node_group_one" {
+  name_prefix = "node_group_one"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    from_port = 80
+    to_port   = 80
+    protocol  = "tcp"
+
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
-locals {
-  eks_addons = {
-    "vpc-cni" = {
-      version           = var.vpc-cni-version
-      resolve_conflicts = "OVERWRITE"
-    },
-    "kube-proxy" = {
-      version           = var.kube-proxy-version
-      resolve_conflicts = "OVERWRITE"
+resource "aws_iam_role" "cloudquicklabs" {
+  name = "eks-cluster-cloudquicklabs"
+
+  assume_role_policy = <<POLICY
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "eks.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
     }
-  }
+  ]
+}
+POLICY
 }
 
-# Creating the EKS Addons
-resource "aws_eks_addon" "example" {
-  for_each = local.eks_addons
+resource "aws_iam_role_policy_attachment" "cloudquicklabs-AmazonEKSClusterPolicy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+  role       = aws_iam_role.cloudquicklabs.name
+}
 
-  cluster_name                = aws_eks_cluster.eks.name
-  addon_name                  = each.key
-  addon_version               = each.value.version
-  resolve_conflicts_on_update = each.value.resolve_conflicts
+# Optionally, enable Security Groups for Pods
+# Reference: https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html
+resource "aws_iam_role_policy_attachment" "cloudquicklabs-AmazonEKSVPCResourceController" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
+  role       = aws_iam_role.cloudquicklabs.name
+}
+
+resource "aws_iam_role" "cloudquicklabs2" {
+  name = "eks-node-group-cloudquicklabs"
+
+  assume_role_policy = jsonencode({
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+    }]
+    Version = "2012-10-17"
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "cloudquicklabs-AmazonEKSWorkerNodePolicy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.cloudquicklabs2.name
+}
+
+resource "aws_iam_role_policy_attachment" "cloudquicklabs-AmazonEKS_CNI_Policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.cloudquicklabs2.name
+}
+
+resource "aws_iam_role_policy_attachment" "cloudquicklabs-AmazonEC2ContainerRegistryReadOnly" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.cloudquicklabs2.name
 }
