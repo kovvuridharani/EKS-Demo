@@ -1,6 +1,7 @@
-resource "aws_eks_cluster" "cloudquicklabs" {
+
+resource "aws_eks_cluster" "MyDemoCluster" {
   name     = var.cluster_name
-  role_arn = aws_iam_role.cloudquicklabs.arn
+  role_arn = aws_iam_role.MyDemoCluster.arn
 
   vpc_config {
     subnet_ids              = var.aws_public_subnet
@@ -11,15 +12,15 @@ resource "aws_eks_cluster" "cloudquicklabs" {
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.cloudquicklabs-AmazonEKSClusterPolicy,
-    aws_iam_role_policy_attachment.cloudquicklabs-AmazonEKSVPCResourceController,
+    aws_iam_role_policy_attachment.MyDemoCluster-AmazonEKSClusterPolicy,
+    aws_iam_role_policy_attachment.MyDemoCluster-AmazonEKSVPCResourceController,
   ]
 }
 
-resource "aws_eks_node_group" "cloudquicklabs" {
-  cluster_name    = aws_eks_cluster.cloudquicklabs.name
+resource "aws_eks_node_group" "MyDemoCluster" {
+  cluster_name    = aws_eks_cluster.MyDemoCluster.name
   node_group_name = var.node_group_name
-  node_role_arn   = aws_iam_role.cloudquicklabs2.arn
+  node_role_arn   = aws_iam_role.MyDemoCluster2.arn
   subnet_ids      = var.aws_public_subnet
   instance_types  = var.instance_types
 
@@ -35,9 +36,9 @@ resource "aws_eks_node_group" "cloudquicklabs" {
   }
 
   depends_on = [
-    aws_iam_role_policy_attachment.cloudquicklabs-AmazonEKSWorkerNodePolicy,
-    aws_iam_role_policy_attachment.cloudquicklabs-AmazonEKS_CNI_Policy,
-    aws_iam_role_policy_attachment.cloudquicklabs-AmazonEC2ContainerRegistryReadOnly,
+    aws_iam_role_policy_attachment.MyDemoCluster-AmazonEKSWorkerNodePolicy,
+    aws_iam_role_policy_attachment.MyDemoCluster-AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.MyDemoCluster-AmazonEC2ContainerRegistryReadOnly,
   ]
 }
 
@@ -60,8 +61,8 @@ resource "aws_security_group" "node_group_one" {
   }
 }
 
-resource "aws_iam_role" "cloudquicklabs" {
-  name = "eks-cluster-cloudquicklabs"
+resource "aws_iam_role" "MyDemoCluster" {
+  name = "eks-cluster-MyDemoCluster"
 
   assume_role_policy = <<POLICY
 {
@@ -79,20 +80,20 @@ resource "aws_iam_role" "cloudquicklabs" {
 POLICY
 }
 
-resource "aws_iam_role_policy_attachment" "cloudquicklabs-AmazonEKSClusterPolicy" {
+resource "aws_iam_role_policy_attachment" "MyDemoCluster-AmazonEKSClusterPolicy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-  role       = aws_iam_role.cloudquicklabs.name
+  role       = aws_iam_role.MyDemoCluster.name
 }
 
 # Optionally, enable Security Groups for Pods
 # Reference: https://docs.aws.amazon.com/eks/latest/userguide/security-groups-for-pods.html
-resource "aws_iam_role_policy_attachment" "cloudquicklabs-AmazonEKSVPCResourceController" {
+resource "aws_iam_role_policy_attachment" "MyDemoCluster-AmazonEKSVPCResourceController" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
-  role       = aws_iam_role.cloudquicklabs.name
+  role       = aws_iam_role.MyDemoCluster.name
 }
 
-resource "aws_iam_role" "cloudquicklabs2" {
-  name = "eks-node-group-cloudquicklabs"
+resource "aws_iam_role" "MyDemoCluster2" {
+  name = "eks-node-group-MyDemoCluster"
 
   assume_role_policy = jsonencode({
     Statement = [{
@@ -106,17 +107,18 @@ resource "aws_iam_role" "cloudquicklabs2" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "cloudquicklabs-AmazonEKSWorkerNodePolicy" {
+resource "aws_iam_role_policy_attachment" "MyDemoCluster-AmazonEKSWorkerNodePolicy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-  role       = aws_iam_role.cloudquicklabs2.name
+  role       = aws_iam_role.MyDemoCluster2.name
 }
 
-resource "aws_iam_role_policy_attachment" "cloudquicklabs-AmazonEKS_CNI_Policy" {
+resource "aws_iam_role_policy_attachment" "MyDemoCluster-AmazonEKS_CNI_Policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-  role       = aws_iam_role.cloudquicklabs2.name
+  role       = aws_iam_role.MyDemoCluster2.name
 }
 
-resource "aws_iam_role_policy_attachment" "cloudquicklabs-AmazonEC2ContainerRegistryReadOnly" {
+resource "aws_iam_role_policy_attachment" "MyDemoCluster-AmazonEC2ContainerRegistryReadOnly" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-  role       = aws_iam_role.cloudquicklabs2.name
+  role       = aws_iam_role.MyDemoCluster2.name
 }
+
