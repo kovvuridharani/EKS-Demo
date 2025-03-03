@@ -4,6 +4,9 @@ module "eks" {
   cluster_name    = local.cluster_name
   cluster_version = var.kubernetes_version
   subnet_ids      = module.vpc.private_subnets
+  ami_type               = "AL2_x86_64"
+  instance_types         = ["t2.micro"]
+  vpc_security_group_ids = [aws_security_group.all_worker_mgmt.id]
 
   enable_irsa = true
 
