@@ -61,7 +61,4 @@ jobs:
           terraform apply -auto-approve
         fi
 
-    - name: Set up kubectl
-      uses: AWS/setup-kubectl@v1
-      with:
-          version: 'latest'
+ 
