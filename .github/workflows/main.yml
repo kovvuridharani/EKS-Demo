@@ -5,7 +5,7 @@ on:
     #  - main
    # paths:
      # - 'Terraform/**'
-  pull_request:
+  push:
     branches:
       - main
     paths:
