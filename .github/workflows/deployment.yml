@@ -25,10 +25,6 @@ jobs:
         with:
           terraform_version: 1.0.0
 
-      - name: Set up kubectl
-        uses: AWS/setup-kubectl@v1
-        with:
-          version: 'latest'
 
       - name: Initialize Terraform
         run: terraform init
